@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Análise de Metas — Agosto/2026</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-page: #f6f5f2;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-clinica: #2a78d6;   /* blue */
+    --series-lab:     #eb6834;   /* orange */
+    --series-meta:    #898781;   /* neutral */
+    --good: #006300;
+    --critical: #d03b3b;
+    --warning: #fab219;
+    --serious: #ec835a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--surface-page);
+    color: var(--text-primary);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-secondary); font-size: 14px; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 0 0 4px;
+    letter-spacing: -0.005em;
+  }
+  h2 + .sub { margin-bottom: 18px; display: block; }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .kpi {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 18px;
+  }
+  .kpi .label { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .kpi .value { font-size: 28px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .kpi .foot { color: var(--text-muted); font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .foot.critical { color: var(--critical); font-weight: 600; }
+  .kpi .foot.good { color: var(--good); font-weight: 600; }
+  .kpi .foot.warning { color: #b57700; font-weight: 600; }
+  /* meter */
+  .meter { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+  .meter .pct { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar {
+    height: 6px;
+    background: var(--gridline);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .bar > span { display: block; height: 100%; border-radius: 3px; }
+
+  /* chart */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+  .legend .sw {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* insight blocks */
+  .insight {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--gridline);
+    align-items: start;
+  }
+  .insight:first-of-type { border-top: none; }
+  .insight .tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 3px 6px;
+    border-radius: 4px;
+    text-align: center;
+    color: #fff;
+    text-transform: uppercase;
+  }
+  .tag.crit { background: var(--critical); }
+  .tag.warn { background: #b57700; }
+  .tag.good { background: var(--good); }
+  .insight h3 { font-size: 15px; margin: 0 0 4px; }
+  .insight p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+
+  /* recommendations */
+  .rec {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 12px;
+    padding: 14px 0;
+    border-top: 1px solid var(--gridline);
+  }
+  .rec:first-of-type { border-top: none; }
+  .rec .num {
+    background: #eef4fd;
+    color: var(--series-clinica);
+    font-weight: 700;
+    height: 28px;
+    width: 28px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+  }
+  .rec h3 { font-size: 15px; margin: 0 0 4px; }
+  .rec p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+
+  /* days table (compact) */
+  table.days {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 8px;
+  }
+  table.days th, table.days td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--gridline);
+    text-align: right;
+  }
+  table.days th { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.days th:first-child, table.days td:first-child { text-align: left; }
+  table.days td.pos { color: var(--good); }
+  table.days td.neg { color: var(--critical); }
+  table.days td.warn { color: #b57700; }
+  .footnote { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Análise de Metas — Agosto/2026</h1>
+  <div class="sub">Base: planilha "meta_agosto_2026 TIME" · Fechamento parcial em 17/08 · 13 dias trabalhados de 24</div>
+</header>
+
+<!-- HERO KPIs -->
+<section class="kpis" aria-label="Indicadores principais">
+  <div class="kpi">
+    <div class="label">Faturamento realizado</div>
+    <div class="value">R$ 372.594</div>
+    <div class="foot">de R$ 689.000 (meta mensal)</div>
+  </div>
+  <div class="kpi">
+    <div class="label">% da meta atingida</div>
+    <div class="value">54,1%</div>
+    <div class="foot">54,2% do mês já percorrido</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Saldo a realizar</div>
+    <div class="value" style="color: var(--critical)">R$ 316.406</div>
+    <div class="foot critical">em 11 dias úteis restantes</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Ritmo diário necessário</div>
+    <div class="value">R$ 28.764</div>
+    <div class="foot warning">vs. média atual de R$ 28.661/dia (-0,4%)</div>
+  </div>
+</section>
+
+<!-- DIAGNÓSTICO GERAL -->
+<section class="card">
+  <h2>Diagnóstico geral</h2>
+  <span class="sub">O ritmo médio até hoje é praticamente igual ao necessário para bater a meta — porém sem gordura para absorver dias fracos.</span>
+
+  <div class="chart-grid">
+    <!-- Clínica meter -->
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <strong>Clínica</strong>
+        <span class="footnote">Meta R$ 489.000</span>
+      </div>
+      <div class="meter">
+        <span class="pct">55,8%</span>
+        <span class="sub" style="font-size:13px;">R$ 272.992 realizado</span>
+      </div>
+      <div class="bar"><span style="width:55.8%; background: var(--series-clinica);"></span></div>
+      <p class="footnote">Faltam R$ 216.008 em 11 dias úteis → R$ 19.637/dia. Média atual do segmento: R$ 20.999/dia. <strong style="color:var(--good)">Segmento no ritmo</strong>.</p>
+    </div>
+
+    <!-- Laboratório meter -->
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <strong>Laboratório</strong>
+        <span class="footnote">Meta R$ 200.000</span>
+      </div>
+      <div class="meter">
+        <span class="pct">49,8%</span>
+        <span class="sub" style="font-size:13px;">R$ 99.602 realizado</span>
+      </div>
+      <div class="bar"><span style="width:49.8%; background: var(--series-lab);"></span></div>
+      <p class="footnote">Faltam R$ 100.398 em 11 dias úteis → R$ 9.127/dia. Média atual do segmento: R$ 7.662/dia. <strong style="color:var(--critical)">Gap de 19% no ritmo diário</strong>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Desempenho por dia -->
+<section class="card">
+  <h2>Desempenho diário — meta vs. realizado</h2>
+  <span class="sub">Cada dia mostra a meta (barra cinza) contra o realizado (barra colorida). Valores em R$ mil.</span>
+
+  <svg viewBox="0 0 900 340" role="img" aria-label="Gráfico de barras: meta vs realizado por dia">
+    <!-- axes -->
+    <g font-family="system-ui, sans-serif" font-size="11" fill="#898781">
+      <!-- y-axis grid -->
+      <line x1="60" y1="30" x2="60" y2="280" stroke="#c3c2b7" stroke-width="1"/>
+      <line x1="60" y1="280" x2="880" y2="280" stroke="#c3c2b7" stroke-width="1"/>
+      <!-- gridlines -->
+      <g stroke="#e1e0d9" stroke-width="1">
+        <line x1="60" y1="230" x2="880" y2="230"/>
+        <line x1="60" y1="180" x2="880" y2="180"/>
+        <line x1="60" y1="130" x2="880" y2="130"/>
+        <line x1="60" y1="80"  x2="880" y2="80"/>
+        <line x1="60" y1="30"  x2="880" y2="30"/>
+      </g>
+      <!-- y labels (0..50k in 10k steps) -->
+      <text x="55" y="284" text-anchor="end">0</text>
+      <text x="55" y="234" text-anchor="end">10k</text>
+      <text x="55" y="184" text-anchor="end">20k</text>
+      <text x="55" y="134" text-anchor="end">30k</text>
+      <text x="55" y="84"  text-anchor="end">40k</text>
+      <text x="55" y="34"  text-anchor="end">50k</text>
+    </g>
+
+    <!-- Bars: 14 days, each day has 2 groups (Meta gray, Real colored) stacked (clínica + lab)
+         Scale: y = 280 - (value / 50000) * 250
+         Width per day = (880-60)/14 = 58.57
+         Padding, meta bar (14px), real bar (14px)
+    -->
+    <!-- Helper: I'll place explicit rects with computed values -->
+    <g font-family="system-ui, sans-serif" font-size="11">
+      <!-- Day slots (center x, label) -->
+      <!-- 8/1 Sáb -->
+      <g transform="translate(75,0)">
+        <rect x="0"  y="230" width="14" height="50" fill="#898781"/>
+        <!-- real: clínica 5993 + lab 3686 = 9679 -->
+        <rect x="16" y="231.6" width="14" height="29.9" fill="#eb6834"/>
+        <rect x="16" y="231.6" width="14" height="18.4" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">1</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Sáb</text>
+      </g>
+      <!-- 8/3 Seg — meta 31.4k, real 35.6k -->
+      <g transform="translate(133,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <!-- real total 35581: clin 26194 lab 9387 -->
+        <rect x="16" y="102" width="14" height="178" fill="#eb6834"/>
+        <rect x="16" y="149" width="14" height="131" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">3</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Seg</text>
+      </g>
+      <!-- 8/4 Ter — meta 31.4k, real 29.1k -->
+      <g transform="translate(191,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <!-- real 29140: clin 21418 lab 7722 -->
+        <rect x="16" y="134" width="14" height="146" fill="#eb6834"/>
+        <rect x="16" y="173" width="14" height="107" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">4</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Ter</text>
+      </g>
+      <!-- 8/5 Qua — real 32.0k -->
+      <g transform="translate(249,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="120" width="14" height="160" fill="#eb6834"/>
+        <rect x="16" y="165" width="14" height="115" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">5</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Qua</text>
+      </g>
+      <!-- 8/6 Qui — real 37.6k (best) -->
+      <g transform="translate(307,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="92" width="14" height="188" fill="#eb6834"/>
+        <rect x="16" y="130" width="14" height="150" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">6</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Qui</text>
+      </g>
+      <!-- 8/7 Sex — real 20.9k (miss BIG) -->
+      <g transform="translate(365,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="176" width="14" height="104" fill="#eb6834"/>
+        <rect x="16" y="202" width="14" height="78" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#d03b3b" font-weight="700">7</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Sex</text>
+      </g>
+      <!-- 8/8 Sáb — real 14.9k on meta 10k -->
+      <g transform="translate(423,0)">
+        <rect x="0"  y="230" width="14" height="50" fill="#898781"/>
+        <rect x="16" y="205" width="14" height="75" fill="#eb6834"/>
+        <rect x="16" y="229" width="14" height="51" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">8</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Sáb</text>
+      </g>
+      <!-- 8/10 Seg — real 27.0k -->
+      <g transform="translate(481,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="145" width="14" height="135" fill="#eb6834"/>
+        <rect x="16" y="178" width="14" height="102" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">10</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Seg</text>
+      </g>
+      <!-- 8/11 Ter — real 33.7k -->
+      <g transform="translate(539,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="112" width="14" height="168" fill="#eb6834"/>
+        <rect x="16" y="163" width="14" height="117" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">11</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Ter</text>
+      </g>
+      <!-- 8/12 Qua — real 28.2k -->
+      <g transform="translate(597,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="140" width="14" height="140" fill="#eb6834"/>
+        <rect x="16" y="178" width="14" height="102" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">12</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Qua</text>
+      </g>
+      <!-- 8/13 Qui — real 38.5k (best) -->
+      <g transform="translate(655,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="88" width="14" height="192" fill="#eb6834"/>
+        <rect x="16" y="134" width="14" height="146" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#006300" font-weight="700">13</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Qui</text>
+      </g>
+      <!-- 8/14 Sex — real 26.2k (miss) -->
+      <g transform="translate(713,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="149" width="14" height="131" fill="#eb6834"/>
+        <rect x="16" y="187" width="14" height="93" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#d03b3b" font-weight="700">14</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Sex</text>
+      </g>
+      <!-- 8/15 Sáb — real 2.3k (catastrófico) -->
+      <g transform="translate(771,0)">
+        <rect x="0"  y="230" width="14" height="50" fill="#898781"/>
+        <rect x="16" y="269" width="14" height="11" fill="#eb6834"/>
+        <rect x="16" y="277" width="14" height="3" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#d03b3b" font-weight="700">15</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Sáb</text>
+      </g>
+      <!-- 8/17 Seg — real 36.9k -->
+      <g transform="translate(829,0)">
+        <rect x="0"  y="123" width="14" height="157" fill="#898781"/>
+        <rect x="16" y="96" width="14" height="184" fill="#eb6834"/>
+        <rect x="16" y="142" width="14" height="138" fill="#2a78d6"/>
+        <text x="15" y="298" text-anchor="middle" fill="#52514e">17</text>
+        <text x="15" y="312" text-anchor="middle" fill="#898781" font-size="10">Seg</text>
+      </g>
+    </g>
+
+    <!-- title on x -->
+    <text x="470" y="332" font-family="system-ui" font-size="11" fill="#898781" text-anchor="middle">Dia do mês · Agosto/2026</text>
+  </svg>
+
+  <div class="legend">
+    <span><span class="sw" style="background:#898781"></span>Meta do dia</span>
+    <span><span class="sw" style="background:#2a78d6"></span>Clínica realizada</span>
+    <span><span class="sw" style="background:#eb6834"></span>Laboratório realizado</span>
+    <span style="color:var(--critical); font-weight:600;">■ Dias em vermelho: abaixo da meta</span>
+  </div>
+</section>
+
+<!-- Tabela sintética -->
+<section class="card">
+  <h2>Ranking dos dias — quem puxou pra cima, quem puxou pra baixo</h2>
+  <span class="sub">Ordenado pelo saldo (real − meta) do dia.</span>
+
+  <table class="days" aria-label="Ranking de dias por saldo">
+    <thead>
+      <tr>
+        <th>Dia</th>
+        <th>Meta</th>
+        <th>Realizado</th>
+        <th>Saldo</th>
+        <th>Var.%</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>13/08 · Qui</td><td>R$ 31.381</td><td>R$ 38.491</td><td class="pos">+R$ 7.110</td><td class="pos">+22,7%</td></tr>
+      <tr><td>06/08 · Qui</td><td>R$ 31.381</td><td>R$ 37.573</td><td class="pos">+R$ 6.192</td><td class="pos">+19,7%</td></tr>
+      <tr><td>17/08 · Seg</td><td>R$ 31.381</td><td>R$ 36.899</td><td class="pos">+R$ 5.518</td><td class="pos">+17,6%</td></tr>
+      <tr><td>08/08 · Sáb</td><td>R$ 10.000</td><td>R$ 14.924</td><td class="pos">+R$ 4.924</td><td class="pos">+49,2%</td></tr>
+      <tr><td>03/08 · Seg</td><td>R$ 31.381</td><td>R$ 35.581</td><td class="pos">+R$ 4.200</td><td class="pos">+13,4%</td></tr>
+      <tr><td>11/08 · Ter</td><td>R$ 31.381</td><td>R$ 33.743</td><td class="pos">+R$ 2.362</td><td class="pos">+7,5%</td></tr>
+      <tr><td>05/08 · Qua</td><td>R$ 31.381</td><td>R$ 32.039</td><td class="pos">+R$ 658</td><td class="pos">+2,1%</td></tr>
+      <tr><td>01/08 · Sáb</td><td>R$ 10.000</td><td>R$ 9.679</td><td class="warn">−R$ 321</td><td class="warn">−3,2%</td></tr>
+      <tr><td>04/08 · Ter</td><td>R$ 31.381</td><td>R$ 29.140</td><td class="neg">−R$ 2.241</td><td class="neg">−7,1%</td></tr>
+      <tr><td>12/08 · Qua</td><td>R$ 31.381</td><td>R$ 28.160</td><td class="neg">−R$ 3.221</td><td class="neg">−10,3%</td></tr>
+      <tr><td>10/08 · Seg</td><td>R$ 31.381</td><td>R$ 27.006</td><td class="neg">−R$ 4.375</td><td class="neg">−13,9%</td></tr>
+      <tr><td>14/08 · Sex</td><td>R$ 31.381</td><td>R$ 26.163</td><td class="neg">−R$ 5.218</td><td class="neg">−16,6%</td></tr>
+      <tr><td><strong>15/08 · Sáb</strong></td><td>R$ 10.000</td><td>R$ 2.316*</td><td class="neg"><strong>−R$ 7.684</strong></td><td class="neg"><strong>−76,8%</strong></td></tr>
+      <tr><td><strong>07/08 · Sex</strong></td><td>R$ 31.381</td><td>R$ 20.880</td><td class="neg"><strong>−R$ 10.501</strong></td><td class="neg"><strong>−33,5%</strong></td></tr>
+    </tbody>
+  </table>
+  <p class="footnote">* Sábado 15/08 aparenta lançamento parcial ou dia atípico — vale checar antes de considerar como perda real.</p>
+</section>
+
+<!-- PONTOS CRÍTICOS -->
+<section class="card">
+  <h2>Pontos críticos — onde estamos perdendo</h2>
+
+  <div class="insight">
+    <span class="tag crit">1</span>
+    <div>
+      <h3>Laboratório está sistematicamente abaixo — o principal risco do mês</h3>
+      <p>Apenas <strong>5 dos 14 dias</strong> bateram a meta do laboratório (36% de aproveitamento). O segmento acumula 49,8% da meta, o pior desempenho relativo. Se mantiver o ritmo, fecha o mês em <strong>~R$ 184 mil (92% da meta)</strong> — deixando R$ 16 mil na mesa.</p>
+    </div>
+  </div>
+
+  <div class="insight">
+    <span class="tag crit">2</span>
+    <div>
+      <h3>Sextas-feiras derretem o resultado da semana</h3>
+      <p>As duas sextas medidas (07/08 e 14/08) foram os <strong>dois piores dias úteis</strong> do mês — juntas somam <strong>−R$ 15,7 mil</strong> de déficit. Concentração de queda: clínica cai ~30% na sexta vs. quinta anterior.</p>
+    </div>
+  </div>
+
+  <div class="insight">
+    <span class="tag warn">3</span>
+    <div>
+      <h3>Sábado 15/08 quase zerou — verificar lançamento</h3>
+      <p>R$ 525 de clínica e R$ 1.791 de laboratório sugerem <strong>dia parcialmente lançado, feriado local ou sábado sem escala completa</strong>. Antes de qualquer plano de recuperação, confirmar se o dado está fechado.</p>
+    </div>
+  </div>
+
+  <div class="insight">
+    <span class="tag warn">4</span>
+    <div>
+      <h3>Falta gordura: estamos "no ritmo", mas sem colchão</h3>
+      <p>A média diária realizada (R$ 28.661) está R$ 103 <em>abaixo</em> do necessário (R$ 28.764). Qualquer sexta ou sábado fraco nas próximas 3 semanas <strong>tira a meta do alcance</strong>.</p>
+    </div>
+  </div>
+
+  <div class="insight">
+    <span class="tag good">5</span>
+    <div>
+      <h3>Quintas e segundas são o motor — proteger e replicar</h3>
+      <p>As três quintas do mês (06, 13) e as segundas (03, 17) trouxeram <strong>+R$ 23 mil acima da meta</strong>. É o padrão que sustenta o mês; qualquer folga na agenda desses dias custa caro.</p>
+    </div>
+  </div>
+</section>
+
+<!-- RECOMENDAÇÕES -->
+<section class="card">
+  <h2>Pontos a melhorar — plano de ação</h2>
+  <span class="sub">Ações organizadas por impacto esperado nos 11 dias úteis restantes.</span>
+
+  <div class="rec">
+    <span class="num">1</span>
+    <div>
+      <h3>Rota de recuperação para o laboratório</h3>
+      <p>Meta remanescente do lab: <strong>R$ 100.398 em 11 dias = R$ 9.127/dia</strong>. Ações imediatas: (a) revisar taxa de conversão de pedidos médicos internos da clínica para o lab (checar quantos exames deixaram de ser fechados internamente); (b) empurrar campanhas de check-up laboratorial nos horários de baixa (2ª a 4ª pela manhã); (c) reforçar convênios com menor take-rate para acelerar volume.</p>
+    </div>
+  </div>
+
+  <div class="rec">
+    <span class="num">2</span>
+    <div>
+      <h3>Reengenharia das sextas-feiras</h3>
+      <p>Adicionar <strong>2 slots extras de atendimento entre 14h–18h de sexta</strong> nas próximas 3 semanas (21/08 e 28/08). Objetivo: recuperar pelo menos R$ 5 mil por sexta, eliminando o buraco que atualmente vem se repetindo.</p>
+    </div>
+  </div>
+
+  <div class="rec">
+    <span class="num">3</span>
+    <div>
+      <h3>Confirmar/corrigir o lançamento de 15/08</h3>
+      <p>Antes do próximo fechamento, validar com a recepção se o dia teve escala reduzida ou se faltou lançamento. Se for erro operacional, revisar o processo de fechamento de caixa dos sábados (checklist de conferência antes do encerramento).</p>
+    </div>
+  </div>
+
+  <div class="rec">
+    <span class="num">4</span>
+    <div>
+      <h3>Blindar quintas e segundas — os dias que puxam o mês</h3>
+      <p>Zero cancelamentos internos ou folgas concedidas em 20/08, 24/08, 27/08 e 31/08. Se aparecer horário vago, ativar lista de espera. Esses 4 dias respondem por ~R$ 130 mil do saldo remanescente.</p>
+    </div>
+  </div>
+
+  <div class="rec">
+    <span class="num">5</span>
+    <div>
+      <h3>Meta por atendente com acompanhamento diário</h3>
+      <p>A planilha define a cota por atendente (8 integrais + 2 meio-período = R$ 76.556/mês para o integral). Passar a acompanhar <strong>a variação semanal individual</strong>, não só o total. Um único atendente 20% abaixo da cota apaga o esforço da equipe.</p>
+    </div>
+  </div>
+
+  <div class="rec">
+    <span class="num">6</span>
+    <div>
+      <h3>Ativar canal de retorno / recompra nas próximas 2 semanas</h3>
+      <p>Consulta ativa: pacientes com retorno pendente há mais de 30 dias e resultados de exame com laudo entregue nos últimos 60 dias. Meta simples: 5 reagendamentos/dia × R$ 300 médio = <strong>+R$ 16,5 mil no mês</strong> — praticamente fecha o gap projetado do lab.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Projeção -->
+<section class="card">
+  <h2>Cenário de fechamento — se nada mudar</h2>
+  <div class="chart-grid">
+    <div>
+      <div class="label" style="font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em;">Projeção linear (mantendo ritmo atual)</div>
+      <div class="meter"><span class="pct">R$ 688,5 mil</span><span class="sub" style="font-size:13px;">99,9% da meta</span></div>
+      <div class="bar"><span style="width:99.9%; background: var(--warning);"></span></div>
+      <p class="footnote">Sem margem. Um único dia atípico derruba o resultado.</p>
+    </div>
+    <div>
+      <div class="label" style="font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em;">Cenário com plano de ação executado</div>
+      <div class="meter"><span class="pct">R$ 712 mil</span><span class="sub" style="font-size:13px;">103% da meta (+R$ 23 mil de folga)</span></div>
+      <div class="bar"><span style="width:100%; background: var(--good);"></span></div>
+      <p class="footnote">Ganho projetado combinando recuperação de sexta + retorno ativo.</p>
+    </div>
+  </div>
+</section>
+
+<footer style="color: var(--text-muted); font-size: 12px; text-align:center; margin-top: 20px;">
+  Fonte: planilha "meta_agosto_2026 TIME" · Dados de 01/08 a 17/08/2026 · Análise gerada em 18/08/2026
+</footer>
+
+</div>
+</body>
+</html>
